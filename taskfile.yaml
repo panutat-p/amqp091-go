@@ -1,0 +1,16 @@
+version: '3'
+
+tasks:
+
+  dev:
+    cmds:
+      - go run main.go
+
+  install:
+    cmds:
+      - go mod tidy
+
+  lint:
+    cmds:
+      - go fmt ./...
+      - gci write -s standard -s default -s 'prefix(github.com/panutat-p)' -s localmodule .
