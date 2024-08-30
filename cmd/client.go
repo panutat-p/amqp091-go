@@ -40,25 +40,25 @@ func NewClient(queueName, dsn string) *Client {
 
 // handleReconnect will wait for a connection error on
 // notifyConnClose, and then continuously attempt to reconnect.
-func (client *Client) handleReconnect() {
+func (c *Client) handleReconnect() {
 	for {
-		client.mu.Lock()
-		client.isReady = false
-		client.mu.Unlock()
+		c.mu.Lock()
+		c.isReady = false
+		c.mu.Unlock()
 
 		fmt.Println("attempting to connect")
 
-		conn, err := client.connect()
+		conn, err := c.connect()
 		if err != nil {
 			select {
-			case <-client.done:
+			case <-c.done:
 				return
 			case <-time.After(DELAY_RECONNECT):
 			}
 			continue
 		}
 
-		isDone := client.handleReInit(conn)
+		isDone := c.handleReInit(conn)
 		if isDone {
 			// When client.done is closed
 			break
@@ -67,33 +67,33 @@ func (client *Client) handleReconnect() {
 }
 
 // connect will create a new AMQP connection
-func (client *Client) connect() (*amqp.Connection, error) {
-	conn, err := amqp.Dial(client.dsn)
+func (c *Client) connect() (*amqp.Connection, error) {
+	conn, err := amqp.Dial(c.dsn)
 	if err != nil {
 		fmt.Println("🔴 Failed to Dial, err:", err)
 		return nil, err
 	}
 
-	client.changeConnection(conn)
+	c.changeConnection(conn)
 	fmt.Println("🟢 Succeeded to connect")
 	return conn, nil
 }
 
 // handleReInit will wait for a channel error
 // and then continuously attempt to re-initialize both channels
-func (client *Client) handleReInit(conn *amqp.Connection) bool {
+func (c *Client) handleReInit(conn *amqp.Connection) bool {
 	for {
-		client.mu.Lock()
-		client.isReady = false
-		client.mu.Unlock()
+		c.mu.Lock()
+		c.isReady = false
+		c.mu.Unlock()
 		fmt.Println("🟡 client is not ready")
 
-		err := client.init(conn)
+		err := c.init(conn)
 		if err != nil {
 			select {
-			case <-client.done:
+			case <-c.done:
 				return true
-			case <-client.notifyConnClose:
+			case <-c.notifyConnClose:
 				fmt.Println("🟡 notify connection closed")
 				return false
 			case <-time.After(DELAY_REINIT):
@@ -102,12 +102,12 @@ func (client *Client) handleReInit(conn *amqp.Connection) bool {
 		}
 
 		select {
-		case <-client.done:
+		case <-c.done:
 			return true
-		case <-client.notifyConnClose:
+		case <-c.notifyConnClose:
 			fmt.Println("🟡 notify connection closed")
 			return false
-		case <-client.notifyChanClose:
+		case <-c.notifyChanClose:
 			fmt.Println("🟡 notify channel closed")
 			// continue the loop
 		}
@@ -115,7 +115,7 @@ func (client *Client) handleReInit(conn *amqp.Connection) bool {
 }
 
 // init will initialize channel & declare queue
-func (client *Client) init(conn *amqp.Connection) error {
+func (c *Client) init(conn *amqp.Connection) error {
 	ch, err := conn.Channel()
 	if err != nil {
 		fmt.Println("🔴 Failed to init Channel, err:", err)
@@ -128,7 +128,7 @@ func (client *Client) init(conn *amqp.Connection) error {
 		return err
 	}
 	_, err = ch.QueueDeclare(
-		client.queueName,
+		c.queueName,
 		false, // Durable
 		false, // Delete when unused
 		false, // Exclusive
@@ -140,45 +140,45 @@ func (client *Client) init(conn *amqp.Connection) error {
 		return err
 	}
 
-	client.changeChannel(ch)
-	client.mu.Lock()
-	client.isReady = true
-	client.mu.Unlock()
+	c.changeChannel(ch)
+	c.mu.Lock()
+	c.isReady = true
+	c.mu.Unlock()
 	fmt.Println("🟢 client is ready")
 	return nil
 }
 
 // changeConnection takes a new connection to the queue,
 // and updates the close listener to reflect this.
-func (client *Client) changeConnection(connection *amqp.Connection) {
-	client.connection = connection
-	client.notifyConnClose = make(chan *amqp.Error, 1)
-	client.connection.NotifyClose(client.notifyConnClose)
+func (c *Client) changeConnection(connection *amqp.Connection) {
+	c.connection = connection
+	c.notifyConnClose = make(chan *amqp.Error, 1)
+	c.connection.NotifyClose(c.notifyConnClose)
 }
 
 // changeChannel takes a new channel to the queue,
 // and updates the channel listeners to reflect this.
-func (client *Client) changeChannel(channel *amqp.Channel) {
-	client.channel = channel
-	client.notifyChanClose = make(chan *amqp.Error, 1)
-	client.notifyConfirm = make(chan amqp.Confirmation, 1)
-	client.channel.NotifyClose(client.notifyChanClose)
-	client.channel.NotifyPublish(client.notifyConfirm)
+func (c *Client) changeChannel(channel *amqp.Channel) {
+	c.channel = channel
+	c.notifyChanClose = make(chan *amqp.Error, 1)
+	c.notifyConfirm = make(chan amqp.Confirmation, 1)
+	c.channel.NotifyClose(c.notifyChanClose)
+	c.channel.NotifyPublish(c.notifyConfirm)
 }
 
 // Consume will continuously put queue items on the channel.
 // It is required to call delivery.Ack when it has been
 // successfully processed, or delivery.Nack when it fails.
 // Ignoring this will cause data to build up on the server.
-func (client *Client) Consume() (<-chan amqp.Delivery, error) {
-	client.mu.Lock()
-	if !client.isReady {
-		client.mu.Unlock()
+func (c *Client) Consume() (<-chan amqp.Delivery, error) {
+	c.mu.Lock()
+	if !c.isReady {
+		c.mu.Unlock()
 		return nil, ErrNotConnected
 	}
-	client.mu.Unlock()
+	c.mu.Unlock()
 
-	if err := client.channel.Qos(
+	if err := c.channel.Qos(
 		1,     // prefetchCount
 		0,     // prefetchSize
 		false, // global
@@ -186,8 +186,8 @@ func (client *Client) Consume() (<-chan amqp.Delivery, error) {
 		return nil, err
 	}
 
-	return client.channel.Consume(
-		client.queueName,
+	return c.channel.Consume(
+		c.queueName,
 		"",    // Consumer
 		false, // Auto-Ack
 		false, // Exclusive
@@ -198,24 +198,24 @@ func (client *Client) Consume() (<-chan amqp.Delivery, error) {
 }
 
 // Close will cleanly shut down the channel and connection.
-func (client *Client) Close() error {
-	client.mu.Lock()
-	defer client.mu.Unlock()
+func (c *Client) Close() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-	if !client.isReady {
+	if !c.isReady {
 		return ErrAlreadyClosed
 	}
-	close(client.done)
-	err := client.channel.Close()
+	close(c.done)
+	err := c.channel.Close()
 	if err != nil {
 		return err
 	}
-	err = client.connection.Close()
+	err = c.connection.Close()
 	if err != nil {
 		return err
 	}
 
-	client.isReady = false // lock is need
+	c.isReady = false // lock is need
 	fmt.Println("🔴 client is not ready")
 	return nil
 }
