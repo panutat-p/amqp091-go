@@ -19,7 +19,8 @@ go.work
 go.work.sum
 
 # env file
-.env
+*.env
+*.env.*
 
 # Editor directories and files
 .vscode/*
