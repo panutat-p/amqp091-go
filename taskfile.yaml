@@ -4,7 +4,7 @@ tasks:
 
   dev:
     cmds:
-      - go run main.go
+      - go run cmd/main.go
 
   install:
     cmds:
