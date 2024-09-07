@@ -1,6 +1,7 @@
 package pool
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -9,20 +10,22 @@ import (
 )
 
 type Client struct {
+	done                  chan struct{}
 	mu                    sync.Mutex
 	dsn                   string
 	Conn                  *amqp091.Connection
 	NotifyCloseConnection chan *amqp091.Error
 }
 
-func NewClient(dsn string) *Client {
+func NewClient(done chan struct{}, dsn string) *Client {
 	return &Client{
+		done:                  done,
 		dsn:                   dsn,
 		NotifyCloseConnection: make(chan *amqp091.Error),
 	}
 }
 
-func (c *Client) Connect() {
+func (c *Client) Connect(ctx context.Context) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -34,12 +37,18 @@ func (c *Client) Connect() {
 	c.Conn = conn
 	fmt.Println("🟢 Succeeded to Dial a connection")
 
-	go c.ReConnect()
+	go c.ReConnect(ctx)
 }
 
-func (c *Client) ReConnect() {
+func (c *Client) ReConnect(ctx context.Context) {
+ReConnectLoop:
 	for {
 		select {
+		case <-ctx.Done():
+			fmt.Println("❌ Graceful shutdown")
+			c.Close()
+			fmt.Println("❌ AMQP connection is closed")
+			break ReConnectLoop
 		case v := <-c.NotifyCloseConnection:
 			c.mu.Lock()
 			fmt.Println("📣 <-CHAN_NOTIFY_CLOSE_CONNECTION:", v)
@@ -59,9 +68,10 @@ func (c *Client) ReConnect() {
 			c.mu.Unlock()
 		}
 	}
+	c.done <- struct{}{}
 }
 
-func (c *Client) StartConsumer(exchange, queue, consumer string) {
+func (c *Client) StartConsumer(ctx context.Context, exchange, queue, consumer string) {
 	var (
 		channel            *amqp091.Channel
 		deliveries         <-chan amqp091.Delivery
@@ -126,6 +136,10 @@ func (c *Client) StartConsumer(exchange, queue, consumer string) {
 Consumer:
 	for {
 		select {
+		case <-ctx.Done():
+			fmt.Println("❌ Graceful shutdown")
+			channel.Close()
+			break Consumer
 		case v := <-notifyCloseChannel:
 			fmt.Println("📣 <-CHAN_NOTIFY_CLOSE_CHANNEL:", v)
 		ReInit:
@@ -164,7 +178,6 @@ Consumer:
 			fmt.Printf("ACK %+v\n", string(d.Body))
 		}
 	}
-	fmt.Println("❌ Channel closed")
 }
 
 func (c *Client) Close() {

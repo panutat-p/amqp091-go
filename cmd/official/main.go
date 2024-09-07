@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -15,19 +16,20 @@ const (
 )
 
 var (
-	CHAN_STOP = make(chan os.Signal, 1)
+	CHAN_DONE = make(chan struct{})
 )
 
 func main() {
-	signal.Notify(
-		CHAN_STOP,
+	ctx, stop := signal.NotifyContext(
+		context.Background(),
 		os.Interrupt,
 		syscall.SIGINT,
 		syscall.SIGTERM,
 	)
+	defer stop()
 
-	go official.Handle(RABBITMQ_DSN, RABBITMQ_EXCHANGE, "001", "001")
+	go official.Handle(ctx, CHAN_DONE, RABBITMQ_DSN, RABBITMQ_EXCHANGE, "002", "001")
 
-	v := <-CHAN_STOP
-	fmt.Println("❌ <-CHAN_STOP:", v)
+	<-CHAN_DONE
+	fmt.Println("❌ Shutdown")
 }

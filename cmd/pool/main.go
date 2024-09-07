@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -15,27 +16,26 @@ const (
 )
 
 var (
-	CHAN_STOP = make(chan os.Signal, 1)
+	CHAN_DONE = make(chan struct{}, 3)
 )
 
 func main() {
-	signal.Notify(
-		CHAN_STOP,
+	ctx, stop := signal.NotifyContext(
+		context.Background(),
 		os.Interrupt,
 		syscall.SIGINT,
 		syscall.SIGTERM,
 	)
+	defer stop()
 
-	c := pool.NewClient(RABBITMQ_DSN)
-	c.Connect()
+	c := pool.NewClient(CHAN_DONE, RABBITMQ_DSN)
+	c.Connect(ctx)
 	defer c.Close()
 
-	go c.StartConsumer(RABBITMQ_EXCHANGE, "001", "001")
-	go c.StartConsumer(RABBITMQ_EXCHANGE, "002", "002")
-	go c.StartConsumer(RABBITMQ_EXCHANGE, "003", "003")
+	go c.StartConsumer(ctx, RABBITMQ_EXCHANGE, "001", "001")
+	go c.StartConsumer(ctx, RABBITMQ_EXCHANGE, "002", "002")
+	go c.StartConsumer(ctx, RABBITMQ_EXCHANGE, "003", "003")
 
-	select {
-	case v := <-CHAN_STOP:
-		fmt.Println("❌ <-CHAN_STOP:", v)
-	}
+	<-CHAN_DONE
+	fmt.Println("❌ Shutdown")
 }

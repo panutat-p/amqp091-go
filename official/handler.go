@@ -8,20 +8,18 @@ import (
 	"github.com/rabbitmq/amqp091-go"
 )
 
-func Handle(dsn, exchange, queue, consumer string) {
+func Handle(ctx context.Context, done chan struct{}, dsn, exchange, queue, consumer string) {
 	c := NewClient(exchange, queue, dsn)
 
 	// Give the connection sometime to set up
 	<-time.After(time.Second)
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*25)
-	defer cancel()
 
 	deliveries, err := c.Consume(consumer)
 	if err != nil {
 		fmt.Println("🔴 Failed to Consume, err:", err)
 		return
 	}
+	fmt.Println("🟢 Succeeded to create deliveries")
 
 	// This channel will receive a notification when a channel closed event
 	// happens. This must be different from Client.notifyChanClose because the
@@ -35,13 +33,15 @@ Consumer:
 	for {
 		select {
 		case <-ctx.Done():
+			fmt.Println("❌ Graceful shutdown")
 			err := c.Close()
 			if err != nil {
 				fmt.Println("🔴 Failed to Close, err:", err)
 			}
+			fmt.Println("🔴 Closed connection")
 			break Consumer
-
 		case amqErr := <-chClosedCh:
+			time.Sleep(1 * time.Second)
 			// This case handles the event of closed channel e.g. abnormal shutdown
 			fmt.Println("🔴 AMQP Channel closed due to", amqErr)
 
@@ -66,4 +66,5 @@ Consumer:
 			fmt.Println("ACK", string(delivery.Body))
 		}
 	}
+	done <- struct{}{}
 }

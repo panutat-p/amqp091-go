@@ -90,7 +90,6 @@ func (c *Client) handleReInit(conn *amqp.Connection) bool {
 		c.mu.Lock()
 		c.isReady = false
 		c.mu.Unlock()
-		fmt.Println("🟡 client is not ready")
 
 		err := c.init(conn)
 		if err != nil {
@@ -102,6 +101,7 @@ func (c *Client) handleReInit(conn *amqp.Connection) bool {
 				fmt.Println("🟡 notify connection closed")
 				return false
 			case <-time.After(DELAY_REINIT):
+				fmt.Println("🟡 retry init")
 			}
 			continue
 		}
@@ -133,7 +133,7 @@ func (c *Client) init(conn *amqp.Connection) error {
 	}
 	_, err = ch.QueueDeclare(
 		c.queueName,
-		false,
+		true,
 		false,
 		false,
 		false,
@@ -152,7 +152,7 @@ func (c *Client) init(conn *amqp.Connection) error {
 	c.channel.NotifyPublish(c.notifyConfirm)
 	c.isReady = true
 	c.mu.Unlock()
-	fmt.Println("🟢 Succeeded to init")
+	fmt.Println("🟢 Succeeded to open a channel")
 	return nil
 }
 
