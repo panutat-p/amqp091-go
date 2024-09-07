@@ -8,8 +8,8 @@ import (
 	"github.com/rabbitmq/amqp091-go"
 )
 
-func Handle(dsn, queue string) {
-	c := NewClient(queue, dsn)
+func Handle() {
+	c := NewClient(RABBITMQ_QUEUE, RABBITMQ_DSN)
 
 	// Give the connection sometime to set up
 	<-time.After(time.Second)

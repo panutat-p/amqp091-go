@@ -9,11 +9,6 @@ import (
 	"rabbitmq-go/internal"
 )
 
-const (
-	RABBITMQ_DSN   = "amqp://guest:guest@localhost:5672/"
-	RABBITMQ_QUEUE = "queue_001"
-)
-
 var CHAN_STOP = make(chan os.Signal, 1)
 
 func main() {
@@ -24,7 +19,7 @@ func main() {
 		syscall.SIGTERM,
 	)
 
-	go internal.Handle(RABBITMQ_DSN, RABBITMQ_QUEUE)
+	go internal.Handle()
 
 	v := <-CHAN_STOP
 	fmt.Println("❌ <-CHAN_STOP:", v)

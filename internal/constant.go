@@ -6,6 +6,11 @@ import (
 )
 
 const (
+	RABBITMQ_DSN   = "amqp://guest:guest@localhost:5672/"
+	RABBITMQ_QUEUE = "queue_001"
+)
+
+const (
 	DELAY_RECONNECT = 5 * time.Second
 	DELAY_REINIT    = 2 * time.Second
 )
