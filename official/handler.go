@@ -1,4 +1,4 @@
-package internal
+package official
 
 import (
 	"context"
@@ -8,8 +8,8 @@ import (
 	"github.com/rabbitmq/amqp091-go"
 )
 
-func Handle() {
-	c := NewClient(RABBITMQ_QUEUE, RABBITMQ_DSN)
+func Handle(dsn, exchange, queue, consumer string) {
+	c := NewClient(exchange, queue, dsn)
 
 	// Give the connection sometime to set up
 	<-time.After(time.Second)
@@ -17,7 +17,7 @@ func Handle() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*25)
 	defer cancel()
 
-	deliveries, err := c.Consume()
+	deliveries, err := c.Consume(consumer)
 	if err != nil {
 		fmt.Println("🔴 Failed to Consume, err:", err)
 		return
@@ -31,7 +31,7 @@ func Handle() {
 	chClosedCh := make(chan *amqp091.Error, 1)
 	c.channel.NotifyClose(chClosedCh)
 
-loop:
+Consumer:
 	for {
 		select {
 		case <-ctx.Done():
@@ -39,18 +39,18 @@ loop:
 			if err != nil {
 				fmt.Println("🔴 Failed to Close, err:", err)
 			}
-			break loop
+			break Consumer
 
 		case amqErr := <-chClosedCh:
 			// This case handles the event of closed channel e.g. abnormal shutdown
 			fmt.Println("🔴 AMQP Channel closed due to", amqErr)
 
-			deliveries, err = c.Consume()
+			deliveries, err = c.Consume(consumer)
 			if err != nil {
 				// If the AMQP channel is not ready, it will continue the loop.
 				// Next iteration will enter this case because chClosedCh is closed by the library
 				fmt.Println("🔴 Failed to Consume, retrying..., err:", err)
-				continue
+				continue Consumer
 			}
 
 			// Re-set channel to receive notifications
@@ -59,12 +59,11 @@ loop:
 			c.channel.NotifyClose(chClosedCh)
 
 		case delivery := <-deliveries:
-			// Ack a message every 2 seconds
-			fmt.Println("🟢 received message:", string(delivery.Body))
-			if err := delivery.Ack(false); err != nil {
+			err := delivery.Ack(false)
+			if err != nil {
 				fmt.Println("🔴 Failed to Ack, err:", err)
 			}
-			<-time.After(time.Second * 2)
+			fmt.Println("ACK", string(delivery.Body))
 		}
 	}
 }

@@ -1,4 +1,4 @@
-package internal
+package official
 
 import (
 	"fmt"
@@ -13,8 +13,9 @@ import (
 // data races. As you develop and iterate over this example, you may need to add
 // further locks, or safeguards, to keep your application safe from data races
 type Client struct {
-	dsn             string
 	mu              *sync.Mutex
+	dsn             string
+	exchangeName    string
 	queueName       string
 	connection      *amqp.Connection
 	channel         *amqp.Channel
@@ -25,14 +26,15 @@ type Client struct {
 	isReady         bool
 }
 
-// New creates a new consumer state instance, and automatically
+// NewClient creates a new consumer state instance, and automatically
 // attempts to connect to the server.
-func NewClient(queueName, dsn string) *Client {
+func NewClient(exchange, queue, dsn string) *Client {
 	client := Client{
-		dsn:       dsn,
-		mu:        &sync.Mutex{},
-		queueName: queueName,
-		done:      make(chan bool),
+		dsn:          dsn,
+		mu:           &sync.Mutex{},
+		exchangeName: exchange,
+		queueName:    queue,
+		done:         make(chan bool),
 	}
 	go client.handleReconnect()
 	return &client
@@ -74,8 +76,10 @@ func (c *Client) connect() (*amqp.Connection, error) {
 		return nil, err
 	}
 
-	c.changeConnection(conn)
-	fmt.Println("🟢 Succeeded to connect")
+	c.connection = conn
+	c.notifyConnClose = make(chan *amqp.Error, 1)
+	c.connection.NotifyClose(c.notifyConnClose)
+	fmt.Println("🟢 Succeeded to Dial")
 	return conn, nil
 }
 
@@ -92,6 +96,7 @@ func (c *Client) handleReInit(conn *amqp.Connection) bool {
 		if err != nil {
 			select {
 			case <-c.done:
+				fmt.Println("🔴 shutdown")
 				return true
 			case <-c.notifyConnClose:
 				fmt.Println("🟡 notify connection closed")
@@ -109,7 +114,6 @@ func (c *Client) handleReInit(conn *amqp.Connection) bool {
 			return false
 		case <-c.notifyChanClose:
 			fmt.Println("🟡 notify channel closed")
-			// continue the loop
 		}
 	}
 }
@@ -129,48 +133,34 @@ func (c *Client) init(conn *amqp.Connection) error {
 	}
 	_, err = ch.QueueDeclare(
 		c.queueName,
-		false, // Durable
-		false, // Delete when unused
-		false, // Exclusive
-		false, // No-wait
-		nil,   // Arguments
+		false,
+		false,
+		false,
+		false,
+		nil,
 	)
 	if err != nil {
 		fmt.Println("🔴 Failed to QueueDeclare, err:", err)
 		return err
 	}
 
-	c.changeChannel(ch)
 	c.mu.Lock()
-	c.isReady = true
-	c.mu.Unlock()
-	fmt.Println("🟢 client is ready")
-	return nil
-}
-
-// changeConnection takes a new connection to the queue,
-// and updates the close listener to reflect this.
-func (c *Client) changeConnection(connection *amqp.Connection) {
-	c.connection = connection
-	c.notifyConnClose = make(chan *amqp.Error, 1)
-	c.connection.NotifyClose(c.notifyConnClose)
-}
-
-// changeChannel takes a new channel to the queue,
-// and updates the channel listeners to reflect this.
-func (c *Client) changeChannel(channel *amqp.Channel) {
-	c.channel = channel
+	c.channel = ch
 	c.notifyChanClose = make(chan *amqp.Error, 1)
 	c.notifyConfirm = make(chan amqp.Confirmation, 1)
 	c.channel.NotifyClose(c.notifyChanClose)
 	c.channel.NotifyPublish(c.notifyConfirm)
+	c.isReady = true
+	c.mu.Unlock()
+	fmt.Println("🟢 Succeeded to init")
+	return nil
 }
 
 // Consume will continuously put queue items on the channel.
 // It is required to call delivery.Ack when it has been
 // successfully processed, or delivery.Nack when it fails.
 // Ignoring this will cause data to build up on the server.
-func (c *Client) Consume() (<-chan amqp.Delivery, error) {
+func (c *Client) Consume(consumer string) (<-chan amqp.Delivery, error) {
 	c.mu.Lock()
 	if !c.isReady {
 		c.mu.Unlock()
@@ -179,21 +169,21 @@ func (c *Client) Consume() (<-chan amqp.Delivery, error) {
 	c.mu.Unlock()
 
 	if err := c.channel.Qos(
-		1,     // prefetchCount
-		0,     // prefetchSize
-		false, // global
+		1,
+		0,
+		false,
 	); err != nil {
 		return nil, err
 	}
 
 	return c.channel.Consume(
 		c.queueName,
-		"",    // Consumer
-		false, // Auto-Ack
-		false, // Exclusive
-		false, // No-local
-		false, // No-Wait
-		nil,   // Args
+		consumer,
+		false,
+		false,
+		false,
+		false,
+		nil,
 	)
 }
 
@@ -216,6 +206,6 @@ func (c *Client) Close() error {
 	}
 
 	c.isReady = false // lock is need
-	fmt.Println("🔴 client is not ready")
+	fmt.Println("🔴 client is closed")
 	return nil
 }

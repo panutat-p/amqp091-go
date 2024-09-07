@@ -1,13 +1,8 @@
-package internal
+package official
 
 import (
 	"errors"
 	"time"
-)
-
-const (
-	RABBITMQ_DSN   = "amqp://guest:guest@localhost:5672/"
-	RABBITMQ_QUEUE = "queue_001"
 )
 
 const (
