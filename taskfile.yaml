@@ -2,9 +2,17 @@ version: '3'
 
 tasks:
 
-  dev:
+  official:
     cmds:
-      - go run cmd/main.go
+      - go run cmd/official/main.go
+
+  pool:
+    cmds:
+      - go run cmd/pool/main.go
+
+  produce:
+    cmds:
+      - go run cmd/produce/main.go
 
   install:
     cmds:
