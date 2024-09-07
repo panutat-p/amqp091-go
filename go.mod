@@ -1,5 +1,5 @@
-module github.com/panutat-p/amqp091_go
+module rabbitmq-go
 
-go 1.23.0
+go 1.23.1
 
 require github.com/rabbitmq/amqp091-go v1.10.0
