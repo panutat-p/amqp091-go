@@ -45,9 +45,9 @@ ReConnectLoop:
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("❌ Graceful shutdown")
+			fmt.Println("💤 Graceful shutdown")
 			c.Close()
-			fmt.Println("❌ AMQP connection is closed")
+			fmt.Println("💤 AMQP connection is closed")
 			break ReConnectLoop
 		case v := <-c.NotifyCloseConnection:
 			c.mu.Lock()
@@ -137,7 +137,7 @@ Consumer:
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("❌ Graceful shutdown")
+			fmt.Println("💤 Graceful shutdown")
 			channel.Close()
 			break Consumer
 		case v := <-notifyCloseChannel:

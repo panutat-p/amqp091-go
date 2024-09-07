@@ -31,5 +31,5 @@ func main() {
 	go official.Handle(ctx, CHAN_DONE, RABBITMQ_DSN, RABBITMQ_EXCHANGE, "002", "001")
 
 	<-CHAN_DONE
-	fmt.Println("❌ Shutdown")
+	fmt.Println("💤 Shutdown")
 }

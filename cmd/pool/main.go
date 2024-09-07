@@ -37,5 +37,5 @@ func main() {
 	go c.StartConsumer(ctx, RABBITMQ_EXCHANGE, "003", "003")
 
 	<-CHAN_DONE
-	fmt.Println("❌ Shutdown")
+	fmt.Println("💤 Shutdown")
 }

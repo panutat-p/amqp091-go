@@ -33,7 +33,7 @@ Consumer:
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("❌ Graceful shutdown")
+			fmt.Println("💤 Graceful shutdown")
 			err := c.Close()
 			if err != nil {
 				fmt.Println("🔴 Failed to Close, err:", err)
