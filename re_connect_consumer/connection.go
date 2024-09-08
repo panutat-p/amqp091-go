@@ -3,12 +3,15 @@ package re_connect_consumer
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/rabbitmq/amqp091-go"
 )
 
 type Client struct {
+	mu                    sync.Mutex
+	isReConnect           bool
 	done                  chan struct{}
 	dsn                   string
 	Conn                  *amqp091.Connection
@@ -46,6 +49,9 @@ ReConnectLoop:
 			break ReConnectLoop
 		case v := <-c.NotifyCloseConnection:
 			fmt.Println("📣 <-CHAN_NOTIFY_CLOSE_CONNECTION:", v)
+			c.mu.Lock()
+			c.isReConnect = true
+			c.mu.Unlock()
 			for {
 				conn, err := amqp091.Dial(c.dsn)
 				if err != nil {
@@ -58,6 +64,9 @@ ReConnectLoop:
 				c.Conn = conn
 				break
 			}
+			c.mu.Lock()
+			c.isReConnect = false
+			c.mu.Unlock()
 			fmt.Println("🔵 Succeeded to re-connect")
 		}
 	}
@@ -134,8 +143,13 @@ Consumer:
 			break Consumer
 		case v := <-notifyCloseChannel:
 			fmt.Println("📣 <-CHAN_NOTIFY_CLOSE_CHANNEL:", v)
+			time.Sleep(2 * time.Second)
 		ReInit:
 			for {
+				if c.isReConnect {
+					time.Sleep(5 * time.Second)
+					continue ReInit
+				}
 				ch, err := c.Conn.Channel()
 				if err != nil {
 					fmt.Println("🟠 Failed to open a channel, err:", err)
