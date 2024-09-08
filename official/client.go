@@ -113,13 +113,14 @@ func (client *Client) handleReInit(conn *amqp.Connection) bool {
 
 		err := client.init(conn)
 		if err != nil {
-			client.errlog.Println("failed to initialize channel, retrying...")
+			client.errlog.Println("Failed to init channel, retrying...")
 
 			select {
 			case <-client.done:
 				return true
 			case <-client.notifyConnClose:
-				client.infolog.Println("connection closed, reconnecting...")
+				client.infolog.Println("📣 got notify connection close")
+				// break re-init loop then go to re-connect
 				return false
 			case <-time.After(reInitDelay):
 			}
@@ -130,7 +131,7 @@ func (client *Client) handleReInit(conn *amqp.Connection) bool {
 		case <-client.done:
 			return true
 		case <-client.notifyConnClose:
-			client.infolog.Println("connection closed, reconnecting...")
+			client.infolog.Println("📣 got notify connection close")
 			return false
 		case <-client.notifyChanClose:
 			client.infolog.Println("channel closed, re-running init...")
@@ -195,7 +196,7 @@ func (client *Client) Push(data []byte) error {
 	client.m.Lock()
 	if !client.isReady {
 		client.m.Unlock()
-		return errors.New("failed to push: not connected")
+		return errors.New("client is not ready")
 	}
 	client.m.Unlock()
 	for {

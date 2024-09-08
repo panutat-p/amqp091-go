@@ -48,13 +48,13 @@ Consumer:
 
 		case amqErr := <-chClosedCh:
 			// This case handles the event of closed channel e.g. abnormal shutdown
-			queue.errlog.Printf("🟠 AMQP Channel closed due to: %s\n", amqErr)
+			queue.errlog.Printf("📣 got notify channel close: %s\n", amqErr)
 
 			deliveries, err = queue.Consume()
 			if err != nil {
 				// If the AMQP channel is not ready, it will continue the loop.
 				// Next iteration will enter this case because chClosedCh is closed by the library
-				queue.errlog.Println("🟠 error trying to consume, will try again")
+				queue.errlog.Println("🟠 Failed to Consume, will try again...")
 				time.Sleep(1 * time.Second)
 				continue
 			}
