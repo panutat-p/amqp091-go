@@ -2,6 +2,10 @@ version: '3'
 
 tasks:
 
+  official:
+    cmds:
+      - go run cmd/official/main.go
+
   consume:
     cmds:
       - go run cmd/re_connect_consumer/main.go
