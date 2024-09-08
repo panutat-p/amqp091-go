@@ -2,6 +2,9 @@ package official
 
 import (
 	"context"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/rabbitmq/amqp091-go"
@@ -11,7 +14,12 @@ func Consume(done chan struct{}, dsn string, queueName string) {
 	queue := New(queueName, dsn)
 	<-time.After(time.Second) // Give the connection sometime to set up
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := signal.NotifyContext(
+		context.Background(),
+		os.Interrupt,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+	)
 	defer cancel()
 
 	deliveries, err := queue.Consume()
@@ -48,6 +56,7 @@ Consumer:
 				// iteration will enter this case because chClosedCh is closed by the
 				// library
 				queue.errlog.Println("🟠 error trying to consume, will try again")
+				time.Sleep(1 * time.Second)
 				continue
 			}
 

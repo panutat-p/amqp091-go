@@ -5,7 +5,9 @@ import (
 	"errors"
 	"log"
 	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -68,11 +70,11 @@ func (client *Client) handleReconnect(addr string) {
 		client.isReady = false
 		client.m.Unlock()
 
-		client.infolog.Println("🟡 attempting to connect")
+		client.infolog.Println("🟡 Attempting to connect")
 
 		conn, err := client.connect(addr)
 		if err != nil {
-			client.errlog.Println("failed to connect. Retrying...")
+			client.errlog.Println("Failed to connect. Retrying...")
 
 			select {
 			case <-client.done:
@@ -82,7 +84,7 @@ func (client *Client) handleReconnect(addr string) {
 			continue
 		}
 
-		client.infolog.Println("🟡 attempting to init")
+		client.infolog.Println("🟡 Attempting to init")
 		if done := client.handleReInit(conn); done {
 			break
 		}
@@ -227,7 +229,12 @@ func (client *Client) UnsafePush(data []byte) error {
 	}
 	client.m.Unlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := signal.NotifyContext(
+		context.Background(),
+		os.Interrupt,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+	)
 	defer cancel()
 
 	return client.channel.PublishWithContext(

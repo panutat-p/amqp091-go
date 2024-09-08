@@ -2,6 +2,9 @@ package official
 
 import (
 	"context"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -9,8 +12,14 @@ func Publish(done chan struct{}, dsn string, queueName string) {
 	queue := New(queueName, dsn)
 	message := []byte("🐢")
 
-	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(5*time.Second))
+	ctx, cancel := signal.NotifyContext(
+		context.Background(),
+		os.Interrupt,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+	)
 	defer cancel()
+
 Publisher:
 	for {
 		select {
