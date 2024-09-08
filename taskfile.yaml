@@ -2,13 +2,9 @@ version: '3'
 
 tasks:
 
-  official:
+  consume:
     cmds:
-      - go run cmd/official/main.go
-
-  pool:
-    cmds:
-      - go run cmd/pool/main.go
+      - go run cmd/re_connect_consumer/main.go
 
   produce:
     cmds:

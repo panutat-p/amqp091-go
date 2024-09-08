@@ -1,9 +1,8 @@
-package pool
+package re_connect_consumer
 
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/rabbitmq/amqp091-go"
@@ -11,7 +10,6 @@ import (
 
 type Client struct {
 	done                  chan struct{}
-	mu                    sync.Mutex
 	dsn                   string
 	Conn                  *amqp091.Connection
 	NotifyCloseConnection chan *amqp091.Error
@@ -26,16 +24,13 @@ func NewClient(done chan struct{}, dsn string) *Client {
 }
 
 func (c *Client) Connect(ctx context.Context) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	conn, err := amqp091.Dial(c.dsn)
 	if err != nil {
 		panic(err)
 	}
 	conn.NotifyClose(c.NotifyCloseConnection)
 	c.Conn = conn
-	fmt.Println("🟢 Succeeded to Dial a connection")
+	fmt.Println("🔵 Succeeded to Dial a connection")
 
 	go c.ReConnect(ctx)
 }
@@ -50,7 +45,6 @@ ReConnectLoop:
 			fmt.Println("💤 AMQP connection is closed")
 			break ReConnectLoop
 		case v := <-c.NotifyCloseConnection:
-			c.mu.Lock()
 			fmt.Println("📣 <-CHAN_NOTIFY_CLOSE_CONNECTION:", v)
 			for {
 				conn, err := amqp091.Dial(c.dsn)
@@ -65,7 +59,6 @@ ReConnectLoop:
 				break
 			}
 			fmt.Println("🔵 Succeeded to re-connect")
-			c.mu.Unlock()
 		}
 	}
 	c.done <- struct{}{}
@@ -84,7 +77,7 @@ func (c *Client) StartConsumer(ctx context.Context, exchange, queue, consumer st
 		panic(err)
 	}
 	channel.NotifyClose(notifyCloseChannel)
-	fmt.Println("🟢 Succeeded to open a channel")
+	fmt.Println("🟠 Succeeded to open a channel")
 
 	err = channel.ExchangeDeclare(
 		exchange,
@@ -131,14 +124,13 @@ func (c *Client) StartConsumer(ctx context.Context, exchange, queue, consumer st
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("🟢 Succeeded to init a deliveries")
+	fmt.Println("🟠 Succeeded to init a deliveries")
 
 Consumer:
 	for {
 		select {
 		case <-ctx.Done():
 			fmt.Println("💤 Graceful shutdown")
-			channel.Close()
 			break Consumer
 		case v := <-notifyCloseChannel:
 			fmt.Println("📣 <-CHAN_NOTIFY_CLOSE_CHANNEL:", v)
@@ -146,7 +138,7 @@ Consumer:
 			for {
 				ch, err := c.Conn.Channel()
 				if err != nil {
-					fmt.Println("🔴 Failed to open a channel, err:", err)
+					fmt.Println("🟠 Failed to open a channel, err:", err)
 					time.Sleep(1 * time.Second)
 					continue ReInit
 				}
@@ -181,7 +173,8 @@ Consumer:
 }
 
 func (c *Client) Close() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.Conn.Close()
+	err := c.Conn.Close()
+	if err != nil {
+		fmt.Println("🔴 Failed to close a connection, err:", err)
+	}
 }

@@ -2,6 +2,10 @@
 
 https://github.com/panutat-p/rabbitmq-go
 
+## UI
+
+http://localhost:15672
+
 ## References
 
 https://github.com/rabbitmq/amqp091-go

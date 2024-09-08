@@ -7,7 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"rabbitmq-go/pool"
+	"rabbitmq-go/re_connect_consumer"
 )
 
 const (
@@ -28,9 +28,8 @@ func main() {
 	)
 	defer stop()
 
-	c := pool.NewClient(CHAN_DONE, RABBITMQ_DSN)
+	c := re_connect_consumer.NewClient(CHAN_DONE, RABBITMQ_DSN)
 	c.Connect(ctx)
-	defer c.Close()
 
 	go c.StartConsumer(ctx, RABBITMQ_EXCHANGE, "001", "001")
 	go c.StartConsumer(ctx, RABBITMQ_EXCHANGE, "002", "002")
