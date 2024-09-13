@@ -33,7 +33,7 @@ func (c *Client) Connect(ctx context.Context) {
 	}
 	conn.NotifyClose(c.NotifyCloseConnection)
 	c.Conn = conn
-	fmt.Println("🔵 Succeeded to Dial a connection")
+	fmt.Println("Succeeded to Dial a connection")
 
 	go c.ReConnect(ctx)
 }
@@ -48,14 +48,14 @@ ReConnectLoop:
 			fmt.Println("💤 AMQP connection is closed")
 			break ReConnectLoop
 		case v := <-c.NotifyCloseConnection:
-			fmt.Println("📣 <-CHAN_NOTIFY_CLOSE_CONNECTION:", v)
+			fmt.Println("Got NOTIFY_CLOSE_CONNECTION", v)
 			c.mu.Lock()
 			c.isReConnect = true
 			c.mu.Unlock()
 			for {
 				conn, err := amqp091.Dial(c.dsn)
 				if err != nil {
-					fmt.Println("🔵 Failed to Dial, err:", err)
+					fmt.Println("Failed to Dial, err:", err)
 					time.Sleep(1 * time.Second)
 					continue
 				}
@@ -67,7 +67,7 @@ ReConnectLoop:
 			c.mu.Lock()
 			c.isReConnect = false
 			c.mu.Unlock()
-			fmt.Println("🔵 Succeeded to re-connect")
+			fmt.Println("Succeeded to re-connect")
 		}
 	}
 	c.done <- struct{}{}
@@ -86,7 +86,7 @@ func (c *Client) StartConsumer(ctx context.Context, exchange, queue, consumer st
 		panic(err)
 	}
 	channel.NotifyClose(notifyCloseChannel)
-	fmt.Println("🟠 Succeeded to open a channel")
+	fmt.Println("Succeeded to open a channel")
 
 	err = channel.ExchangeDeclare(
 		exchange,
@@ -133,16 +133,17 @@ func (c *Client) StartConsumer(ctx context.Context, exchange, queue, consumer st
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("🟠 Succeeded to init a deliveries")
+	fmt.Println("Succeeded to init a deliveries")
 
 Consumer:
 	for {
+		fmt.Println("🟢 Consumer started")
 		select {
 		case <-ctx.Done():
 			fmt.Println("💤 Graceful shutdown")
 			break Consumer
 		case v := <-notifyCloseChannel:
-			fmt.Println("📣 <-CHAN_NOTIFY_CLOSE_CHANNEL:", v)
+			fmt.Println("Got NOTIFY_CLOSE_CHANNEL", v)
 			time.Sleep(2 * time.Second)
 		ReInit:
 			for {
@@ -152,7 +153,7 @@ Consumer:
 				}
 				ch, err := c.Conn.Channel()
 				if err != nil {
-					fmt.Println("🟠 Failed to open a channel, err:", err)
+					fmt.Println("Failed to open a channel, err:", err)
 					time.Sleep(1 * time.Second)
 					continue ReInit
 				}
@@ -168,27 +169,28 @@ Consumer:
 					false,
 					nil,
 				)
-				fmt.Println("🟠 Succeeded to re-init")
+				fmt.Println("Succeeded to re-init")
 				break ReInit
 			}
 		case d, ok := <-deliveries:
 			if !ok {
-				fmt.Println("❌ Channel closed")
+				fmt.Println("Delivery was closed")
 				break Consumer
 			}
 			err = d.Ack(false)
 			if err != nil {
-				fmt.Println("🔴 Failed to Ack, err:", err)
+				fmt.Println("Failed to Ack, err:", err)
 				continue Consumer
 			}
 			fmt.Printf("ACK %+v\n", string(d.Body))
 		}
 	}
+	fmt.Println("🔴 Consumer stopped")
 }
 
 func (c *Client) Close() {
 	err := c.Conn.Close()
 	if err != nil {
-		fmt.Println("🔴 Failed to close a connection, err:", err)
+		fmt.Println("Failed to close a connection, err:", err)
 	}
 }
