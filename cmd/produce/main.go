@@ -10,8 +10,10 @@ import (
 )
 
 const (
-	RABBITMQ_DSN      = "amqp://guest:guest@localhost:5672/"
-	RABBITMQ_EXCHANGE = "fruit"
+	RABBITMQ_DSN             = "amqp://guest:guest@localhost:5672/"
+	RABBITMQ_EXCHANGE_FOX    = "fox"
+	RABBITMQ_EXCHANGE_MONKEY = "monkey"
+	RABBITMQ_EXCHANGE_TURTLE = "turtle"
 )
 
 func main() {
@@ -42,7 +44,7 @@ func main() {
 		}
 		err = ch.PublishWithContext(
 			ctx,
-			RABBITMQ_EXCHANGE,
+			RABBITMQ_EXCHANGE_FOX,
 			"",
 			false,
 			false,
@@ -72,7 +74,7 @@ func main() {
 		}
 		err = ch.PublishWithContext(
 			ctx,
-			RABBITMQ_EXCHANGE,
+			RABBITMQ_EXCHANGE_MONKEY,
 			"",
 			false,
 			false,
@@ -102,7 +104,7 @@ func main() {
 		}
 		err = ch.PublishWithContext(
 			ctx,
-			RABBITMQ_EXCHANGE,
+			RABBITMQ_EXCHANGE_TURTLE,
 			"",
 			false,
 			false,

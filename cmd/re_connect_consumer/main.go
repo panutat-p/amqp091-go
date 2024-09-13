@@ -11,8 +11,10 @@ import (
 )
 
 const (
-	RABBITMQ_DSN      = "amqp://guest:guest@localhost:5672/"
-	RABBITMQ_EXCHANGE = "fruit"
+	RABBITMQ_DSN             = "amqp://guest:guest@localhost:5672/"
+	RABBITMQ_EXCHANGE_FOX    = "fox"
+	RABBITMQ_EXCHANGE_MONKEY = "monkey"
+	RABBITMQ_EXCHANGE_TURTLE = "turtle"
 )
 
 var (
@@ -31,9 +33,9 @@ func main() {
 	c := re_connect_consumer.NewClient(CHAN_DONE, RABBITMQ_DSN)
 	c.Connect(ctx)
 
-	go c.StartConsumer(ctx, RABBITMQ_EXCHANGE, "001", "001")
-	go c.StartConsumer(ctx, RABBITMQ_EXCHANGE, "002", "002")
-	go c.StartConsumer(ctx, RABBITMQ_EXCHANGE, "003", "003")
+	go c.StartConsumer(ctx, RABBITMQ_EXCHANGE_FOX, "001", "001")
+	go c.StartConsumer(ctx, RABBITMQ_EXCHANGE_MONKEY, "002", "002")
+	go c.StartConsumer(ctx, RABBITMQ_EXCHANGE_TURTLE, "003", "003")
 
 	<-CHAN_DONE
 	fmt.Println("💤 Shutdown")
