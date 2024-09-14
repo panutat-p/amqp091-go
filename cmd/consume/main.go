@@ -31,7 +31,10 @@ func main() {
 	defer stop()
 
 	c := re_connect_consumer.NewClient(CHAN_DONE, RABBITMQ_DSN)
-	c.Connect(ctx)
+	err := c.Connect(ctx)
+	if err != nil {
+		panic(err)
+	}
 
 	go func() {
 		consumer := re_connect_consumer.NewConsumer(c.Conn, RABBITMQ_EXCHANGE_FOX, "001", "001")

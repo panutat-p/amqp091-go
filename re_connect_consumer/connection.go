@@ -26,16 +26,17 @@ func NewClient(done chan struct{}, dsn string) *Client {
 	}
 }
 
-func (c *Client) Connect(ctx context.Context) {
+func (c *Client) Connect(ctx context.Context) error {
 	conn, err := amqp091.Dial(c.dsn)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	conn.NotifyClose(c.NotifyCloseConnection)
 	c.Conn = conn
 	fmt.Println("Succeeded to Dial a connection")
 
 	go c.ReConnect(ctx)
+	return nil
 }
 
 func (c *Client) ReConnect(ctx context.Context) {

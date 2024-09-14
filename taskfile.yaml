@@ -8,7 +8,7 @@ tasks:
 
   consume:
     cmds:
-      - go run cmd/re_connect_consumer/main.go
+      - go run cmd/consume/main.go
 
   produce:
     cmds:
