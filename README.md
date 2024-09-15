@@ -10,6 +10,8 @@ http://localhost:15672
 
 https://github.com/rabbitmq/amqp091-go
 
+https://github.com/ThreeDotsLabs/watermill
+
 https://www.rabbitmq.com/tutorials/amqp-concepts
 
 https://www.rabbitmq.com/docs/channels
